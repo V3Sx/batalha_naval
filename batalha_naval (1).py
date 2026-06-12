@@ -1,10 +1,10 @@
 import random
 
-# Dimensões do tabuleiro
+# Tamanho do tabuleiro
 LINHAS = 10
 COLUNAS = 10
 
-# Definição dos navios com IDs únicos e seus tamanhos
+# Cada navio tem um número de identificação (ID), um nome e quantas casas ocupa
 NAVIOS = {
     2: ("Porta-aviões", 5),
     3: ("Navio-tanque", 4),
@@ -13,168 +13,185 @@ NAVIOS = {
     6: ("Destroier", 1)
 }
 
-# Cria um tabuleiro vazio preenchido com '.'
+# Letras que identificam as linhas do tabuleiro na tela
+LETRAS_DAS_LINHAS = ['A','B','C','D','E','F','G','H','I','J']
+
+
+# Cria um tabuleiro 10x10 todo preenchido com '.' (água vazia)
 def criar_tabuleiro():
-    return [['.' for _ in range(COLUNAS)] for _ in range(LINHAS)]
+    tabuleiro = []
+    for numero_linha in range(LINHAS):
+        linha = []
+        for numero_coluna in range(COLUNAS):
+            linha.append('.')
+        tabuleiro.append(linha)
+    return tabuleiro
 
-# Exibe o tabuleiro na tela
-def mostrar_tabuleiro(tabuleiro, nome, mostrar_navios=False):
-    letras = ['A','B','C','D','E','F','G','H','I','J']
 
-    print("\nTabuleiro do " + nome)
-    print("    " + "".join(f"{i:<5}" for i in range(COLUNAS)))
+# Imprime o tabuleiro no terminal com os símbolos certos em cada casa
+# mostrar_navios=True  → mostra os navios (usado pro próprio jogador ver onde posicionou)
+# mostrar_navios=False → esconde os navios (usado pra ver o tabuleiro do computador)
+def mostrar_tabuleiro(tabuleiro, nome_do_dono, mostrar_navios=False):
+    print("\nTabuleiro do " + nome_do_dono)
+    print("    " + "".join(f"{numero_coluna:<5}" for numero_coluna in range(COLUNAS)))
 
-    for i in range(LINHAS):
-        linha_str = f" {letras[i]}  "
+    for indice_linha in range(LINHAS):
+        texto_da_linha = f" {LETRAS_DAS_LINHAS[indice_linha]}  "
 
-        for j in range(COLUNAS):
-            celula = tabuleiro[i][j]
+        for indice_coluna in range(COLUNAS):
+            conteudo_da_celula = tabuleiro[indice_linha][indice_coluna]
 
-            # Define qual símbolo será mostrado
-            if isinstance(celula, int) and mostrar_navios:
-                simbolo = "🚢"
-            elif celula == '💥':
-                simbolo = "💥"
-            elif celula == '❌':
-                simbolo = "❌"
+            # Escolhe o símbolo certo pra cada tipo de celula
+            if isinstance(conteudo_da_celula, int) and mostrar_navios:
+                simbolo = "🚢"  # célula com navio (só aparece pro dono do tabuleiro)
+            elif conteudo_da_celula == '💥':
+                simbolo = "💥"  # tiro que acertou um navio
+            elif conteudo_da_celula == '❌':
+                simbolo = "❌"  # tiro que caiu na água
             else:
-                simbolo = "🌊"
+                simbolo = "🌊"  # água que ainda não foi atacada
 
-            linha_str += f"{simbolo:<2}  "
+            texto_da_linha += f"{simbolo:<2}  "
 
-        print(linha_str)
+        print(texto_da_linha)
 
-# Conta quantas embarcações ainda não foram afundadas
-def contar_embarcacoes(navios_info):
-    return len([n for n in navios_info.values() if n["células"]])
 
-# Posiciona os navios do jogador ou do computador
-def posicionar(tabuleiro, navios_info, jogador=True):
-    letras = ['A','B','C','D','E','F','G','H','I','J']
+# Conta quantos navios ainda estão vivos 
+def contar_embarcacoes(info_dos_navios):
+    navios_vivos = 0
+    for dados_do_navio in info_dos_navios.values():
+        if dados_do_navio["células"]:  # lista não vazia = navio ainda vivo
+            navios_vivos += 1
+    return navios_vivos
 
-    for navio_id, (nome, tamanho) in NAVIOS.items():
-        posicionado = False
 
-        while not posicionado:
+# Posiciona todos os navios no tabuleiro
+# Se for jogador=True, pede as posições pelo teclado
+# Se for jogador=False, o computador sorteia as posições
+def posicionar(tabuleiro, info_dos_navios, jogador=True):
 
-            # Posicionamento manual do jogador
+    for id_do_navio, (nome_do_navio, tamanho_do_navio) in NAVIOS.items():
+        navio_posicionado = False
+
+        # Fica tentando até conseguir posicionar o navio sem conflito
+        while not navio_posicionado:
+
             if jogador:
-                print(f"\nVocê está posicionando: {nome} (tamanho {tamanho})")
+                print(f"\nVocê está posicionando: {nome_do_navio} (tamanho {tamanho_do_navio})")
                 mostrar_tabuleiro(tabuleiro, "Jogador", mostrar_navios=True)
 
-                letra = input("Linha inicial (A-J): ").upper()
-
-                if letra not in letras:
+                letra_da_linha = input("Linha inicial (A-J): ").upper()
+                if letra_da_linha not in LETRAS_DAS_LINHAS:
                     continue
 
                 try:
-                    coluna = int(input("Coluna inicial (0-9): "))
+                    coluna_inicial = int(input("Coluna inicial (0-9): "))
                 except ValueError:
                     continue
 
                 direcao = input("Direcao (H/V): ").upper()
-                linha = letras.index(letra)
+                linha_inicial = LETRAS_DAS_LINHAS.index(letra_da_linha)
 
-            # Posicionamento automático do computador
             else:
-                linha = random.randint(0, 9)
-                coluna = random.randint(0, 9)
-                direcao = random.choice(['H','V'])
+                linha_inicial  = random.randint(0, 9)
+                coluna_inicial = random.randint(0, 9)
+                direcao        = random.choice(['H', 'V'])
 
-            cabe = True
-            coords = []
+            # Verifica se o navio cabe sem sair do tabuleiro e sem sobrepor outro
+            navio_cabe = True
+            celulas_do_navio = []
 
-            # Verifica se o navio cabe na posição escolhida
-            for k in range(tamanho):
+            for passo in range(tamanho_do_navio):
 
                 if direcao == 'H':
-                    if coluna + k > 9 or tabuleiro[linha][coluna + k] != '.':
-                        cabe = False
+                    coluna_atual = coluna_inicial + passo
+                    if coluna_atual > 9 or tabuleiro[linha_inicial][coluna_atual] != '.':
+                        navio_cabe = False
                         break
-
-                    coords.append((linha, coluna + k))
+                    celulas_do_navio.append((linha_inicial, coluna_atual))
 
                 else:
-                    if linha + k > 9 or tabuleiro[linha + k][coluna] != '.':
-                        cabe = False
+                    linha_atual = linha_inicial + passo
+                    if linha_atual > 9 or tabuleiro[linha_atual][coluna_inicial] != '.':
+                        navio_cabe = False
                         break
+                    celulas_do_navio.append((linha_atual, coluna_inicial))
 
-                    coords.append((linha + k, coluna))
+            if navio_cabe:
+                # Marca o ID do navio em cada célula que ele ocupa
+                for (lin, col) in celulas_do_navio:
+                    tabuleiro[lin][col] = id_do_navio
 
-            # Posiciona o navio no tabuleiro
-            if cabe:
-                for (x, y) in coords:
-                    tabuleiro[x][y] = navio_id
-
-                navios_info[navio_id] = {
-                    "nome": nome,
-                    "células": coords
+                # Salva nome e posições do navio pra consultar durante o jogo
+                info_dos_navios[id_do_navio] = {
+                    "nome": nome_do_navio,
+                    "células": celulas_do_navio
                 }
 
-                posicionado = True
+                navio_posicionado = True
 
-# Realiza um ataque no tabuleiro adversário
-def atacar(tabuleiro_alvo, tabuleiro_visivel, navios_info, jogador=True):
-    letras = ['A','B','C','D','E','F','G','H','I','J']
+
+# Executa um ataque no tabuleiro do adversário
+# Retorna True se acertou um navio (quem acertou joga de novo)
+# Retorna False se errou (passa a vez pro outro)
+def atacar(tabuleiro_do_alvo, tabuleiro_visivel, info_dos_navios, jogador=True):
 
     while True:
 
-        # Jogada do jogador
         if jogador:
-            letra = input("\nQual linha quer atacar? (A-J): ").upper()
-
-            if letra not in letras:
+            letra_da_linha = input("\nQual linha quer atacar? (A-J): ").upper()
+            if letra_da_linha not in LETRAS_DAS_LINHAS:
                 continue
 
             try:
-                coluna = int(input("Qual coluna quer atacar? (0-9): "))
+                coluna_atacada = int(input("Qual coluna quer atacar? (0-9): "))
             except ValueError:
                 continue
 
-            if coluna < 0 or coluna > 9:
+            if coluna_atacada < 0 or coluna_atacada > 9:
                 continue
 
-            linha = letras.index(letra)
+            linha_atacada = LETRAS_DAS_LINHAS.index(letra_da_linha)
 
-        # Jogada aleatória do computador
         else:
-            linha, coluna = random.randint(0, 9), random.randint(0, 9)
-            print("Computador atacou:", letras[linha] + str(coluna))
+            linha_atacada  = random.randint(0, 9)
+            coluna_atacada = random.randint(0, 9)
+            print("Computador atacou:", LETRAS_DAS_LINHAS[linha_atacada] + str(coluna_atacada))
 
-        # Impede ataques repetidos
-        if tabuleiro_visivel[linha][coluna] in ['💥','❌']:
+        # Não deixa atacar uma posição que já foi atacada antes
+        if tabuleiro_visivel[linha_atacada][coluna_atacada] in ['💥', '❌']:
             if jogador:
                 print("Você já atacou esse lugar! Escolha outro.")
                 continue
             else:
-                return False
+                return False  # computador sorteou posição repetida, vai tentar de novo
 
-        break
+        break  # posição válida, sai do loop de escolha
 
-    celula = tabuleiro_alvo[linha][coluna]
+    conteudo_da_celula = tabuleiro_do_alvo[linha_atacada][coluna_atacada]
 
-    # Verifica se acertou um navio
-    if isinstance(celula, int):
+    if isinstance(conteudo_da_celula, int):  # acertou um navio
+        # Marca a célula como atingida nos dois tabuleiros
+        tabuleiro_do_alvo[linha_atacada][coluna_atacada] = 0
+        tabuleiro_visivel[linha_atacada][coluna_atacada] = '💥'
 
-        tabuleiro_alvo[linha][coluna] = 0
-        tabuleiro_visivel[linha][coluna] = '💥'
-
-        navio = navios_info[celula]
-        navio["células"].remove((linha, coluna))
+        # Retira essa célula da lista de células vivas do navio
+        navio_atingido = info_dos_navios[conteudo_da_celula]
+        navio_atingido["células"].remove((linha_atacada, coluna_atacada))
 
         print("🎯 Acertou!")
 
-        # Verifica se o navio foi afundado
-        if not navio["células"]:
-            print(f"🔥 {navio['nome']} foi afundado!")
+        # Se todas as células do navio foram atingidas, ele afundou
+        if not navio_atingido["células"]:
+            print(f"🔥 {navio_atingido['nome']} foi afundado!")
 
-        return True
+        return True  # acertou → joga de novo
 
-    # Caso erre o ataque
     else:
-        tabuleiro_visivel[linha][coluna] = '❌'
+        tabuleiro_visivel[linha_atacada][coluna_atacada] = '❌'
         print("🌊 Errou!")
-        return False
+        return False  # errou → passa a vez
+
 
 # ==============================
 # INÍCIO DO JOGO
@@ -184,26 +201,29 @@ print("----------------------------------")
 print("Bem vindo ao Batalha Naval!")
 print("----------------------------------")
 
-# Criação dos tabuleiros
-oculto_computador = criar_tabuleiro()
-oculto_jogador = criar_tabuleiro()
-visivel_computador = criar_tabuleiro()
+# Tabuleiro real do computador (o jogador nunca vê esse)
+tabuleiro_oculto_computador = criar_tabuleiro()
 
-# Dicionários para armazenar informações dos navios
-navios_computador = {}
-navios_jogador = {}
+# Tabuleiro real do jogador (onde os navios dele estão)
+tabuleiro_oculto_jogador = criar_tabuleiro()
+
+# O que o jogador vê do tabuleiro do computador (começa vazio, vai preenchendo com 💥 e ❌)
+tabuleiro_visivel_computador = criar_tabuleiro()
+
+# Guardam as informações dos navios de cada lado
+info_navios_computador = {}
+info_navios_jogador = {}
+
 try:
-    # Posicionamento inicial dos navios
-    posicionar(oculto_computador, navios_computador, jogador=False)
-    posicionar(oculto_jogador, navios_jogador, jogador=True)
+    # Posiciona os navios antes de começar — computador primeiro (aleatório), depois o jogador
+    posicionar(tabuleiro_oculto_computador, info_navios_computador, jogador=False)
+    posicionar(tabuleiro_oculto_jogador, info_navios_jogador, jogador=True)
 
-    # Exibe os tabuleiros iniciais
-    mostrar_tabuleiro(visivel_computador, "Computador")
-    mostrar_tabuleiro(oculto_jogador, "Jogador", mostrar_navios=True)
+    # Mostra os dois tabuleiros no início
+    mostrar_tabuleiro(tabuleiro_visivel_computador, "Computador")
+    mostrar_tabuleiro(tabuleiro_oculto_jogador, "Jogador", mostrar_navios=True)
 
-
-
-    # Loop principal do jogo
+    # Loop principal — roda até alguém vencer ou o jogador apertar Ctrl+C
     while True:
 
         # ==============================
@@ -211,73 +231,58 @@ try:
         # ==============================
         print("\n--- Sua vez ---")
 
-        while atacar(oculto_computador, visivel_computador, navios_computador, jogador=True):
+        # Enquanto o jogador acertar, ele continua atacando
+        while atacar(tabuleiro_oculto_computador, tabuleiro_visivel_computador, info_navios_computador, jogador=True):
 
-            mostrar_tabuleiro(visivel_computador, "Computador")
+            mostrar_tabuleiro(tabuleiro_visivel_computador, "Computador")
+            print("Embarcações restantes (Computador):", contar_embarcacoes(info_navios_computador))
+            print("Embarcações restantes (Você):", contar_embarcacoes(info_navios_jogador))
 
-            print("Embarcações restantes (Computador):",
-                  contar_embarcacoes(navios_computador))
-
-            print("Embarcações restantes (Você):",
-                  contar_embarcacoes(navios_jogador))
-
-            # Verifica vitória do jogador
-            if contar_embarcacoes(navios_computador) == 0:
+            # Verifica se o jogador afundou todos os navios do computador
+            if contar_embarcacoes(info_navios_computador) == 0:
                 print("\n🎉 Parabéns! Você venceu!")
-
                 print("\nJogo desenvolvido por:")
                 print("João Vitor Chaves Venancio")
                 print("Victor Hugo dos Santos de Camargo")
                 print("Vinicius Roxadelli de Almeida")
-
                 raise SystemExit
 
-        mostrar_tabuleiro(visivel_computador, "Computador")
-        mostrar_tabuleiro(oculto_jogador, "Jogador", mostrar_navios=True)
-
-        print("Embarcações restantes (Computador):",
-              contar_embarcacoes(navios_computador))
-
-        print("Embarcações restantes (Você):",
-              contar_embarcacoes(navios_jogador))
+        mostrar_tabuleiro(tabuleiro_visivel_computador, "Computador")
+        mostrar_tabuleiro(tabuleiro_oculto_jogador, "Jogador", mostrar_navios=True)
+        print("Embarcações restantes (Computador):", contar_embarcacoes(info_navios_computador))
+        print("Embarcações restantes (Você):", contar_embarcacoes(info_navios_jogador))
 
         # ==============================
         # TURNO DO COMPUTADOR
         # ==============================
         print("\n--- Vez do computador ---")
 
-        while atacar(oculto_jogador, oculto_jogador, navios_jogador, jogador=False):
+        # Enquanto o computador acertar, ele continua atacando
+        while atacar(tabuleiro_oculto_jogador, tabuleiro_oculto_jogador, info_navios_jogador, jogador=False):
 
-            mostrar_tabuleiro(oculto_jogador, "Jogador", mostrar_navios=True)
+            mostrar_tabuleiro(tabuleiro_oculto_jogador, "Jogador", mostrar_navios=True)
+            print("Embarcações restantes (Computador):", contar_embarcacoes(info_navios_computador))
+            print("Embarcações restantes (Você):", contar_embarcacoes(info_navios_jogador))
 
-            print("Embarcações restantes (Computador):",
-                  contar_embarcacoes(navios_computador))
-
-            print("Embarcações restantes (Você):",
-                  contar_embarcacoes(navios_jogador))
-
-            # Verifica vitória do computador
-            if contar_embarcacoes(navios_jogador) == 0:
+            # Verifica se o computador afundou todos os navios do jogador
+            if contar_embarcacoes(info_navios_jogador) == 0:
                 print("\n💀 O computador venceu!")
-
                 print("\nJogo desenvolvido por:")
                 print("João Vitor Chaves Venancio")
                 print("Victor Hugo dos Santos de Camargo")
                 print("Vinicius Roxadelli de Almeida")
-
                 print("\nObrigado por jogar nosso jogo, volte sempre!")
-
                 raise SystemExit
 
-        mostrar_tabuleiro(visivel_computador, "Computador")
-        mostrar_tabuleiro(oculto_jogador, "Jogador", mostrar_navios=True)
+        mostrar_tabuleiro(tabuleiro_visivel_computador, "Computador")
+        mostrar_tabuleiro(tabuleiro_oculto_jogador, "Jogador", mostrar_navios=True)
+        print("Embarcações restantes (Computador):", contar_embarcacoes(info_navios_computador))
+        print("Embarcações restantes (Você):", contar_embarcacoes(info_navios_jogador))
 
-        print("Embarcações restantes (Computador):",
-              contar_embarcacoes(navios_computador))
-
-        print("Embarcações restantes (Você):",
-              contar_embarcacoes(navios_jogador))
-
-# Trata encerramento com CTRL+C
+# Se o jogador apertar Ctrl+C em qualquer momento, encerra sem travar
 except KeyboardInterrupt:
     print("\n\n⛔ Jogo interrompido pelo usuário. Até a próxima!")
+    print("\nJogo desenvolvido por:")
+    print("João Vitor Chaves Venancio")
+    print("Victor Hugo dos Santos de Camargo")
+    print("Vinicius Roxadelli de Almeida")
